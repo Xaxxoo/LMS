@@ -19,7 +19,7 @@ app.use(
   })
 );
 //Routes
-app.use("/api/v1/register", userRouter)
+app.use("/api/v1/auth", userRouter)
 
 //Testing api
 app.get("/test", (req: Request, res: Response, next: NextFunction) => {
