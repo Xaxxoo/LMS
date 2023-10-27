@@ -7,7 +7,11 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import ejs from "ejs";
 import path from "path";
 import sendMail from "../utils/sendMail";
-import { accessTokenOptions, refreshTokenOptions, sendToken } from "../utils/jwt";
+import {
+  accessTokenOptions,
+  refreshTokenOptions,
+  sendToken,
+} from "../utils/jwt";
 import { redis } from "../utils/redis";
 import { getUserById } from "../services/userService";
 
@@ -198,38 +202,111 @@ export const updateAccessToken = catchAsyncError(
       if (!session) {
         return next(new ErrorHandler(message, 400));
       }
-        const user = JSON.parse(session)
-        const accessToken = jwt.sign({ id: user._id }, process.env.ACCESS_TOKEN as string, {
-            expiresIn: '5m',
-        });
+      const user = JSON.parse(session);
+      const accessToken = jwt.sign(
+        { id: user._id },
+        process.env.ACCESS_TOKEN as string,
+        {
+          expiresIn: "5m",
+        }
+      );
 
-        const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_TOKEN as string, {
-            expiresIn: '3d',
-        });
+      const refreshToken = jwt.sign(
+        { id: user._id },
+        process.env.REFRESH_TOKEN as string,
+        {
+          expiresIn: "3d",
+        }
+      );
 
-        res.cookie("access_token", accessToken, accessTokenOptions);
-        res.cookie("refresh_token", refreshToken, refreshTokenOptions);
+      req.user = user;
 
-        res.status(200).json({
-            success: true,
-            accessToken
-        });
+      res.cookie("access_token", accessToken, accessTokenOptions);
+      res.cookie("refresh_token", refreshToken, refreshTokenOptions);
 
+      res.status(200).json({
+        success: true,
+        accessToken,
+      });
     } catch (error: any) {
-        return next(new ErrorHandler(error.message, 400));
-
+      return next(new ErrorHandler(error.message, 400));
     }
   }
 );
 
-
 //Get User Information
-export const getUserInfo = catchAsyncError(async (req: Request, res: Response, next: NextFunction) => { 
+export const getUserInfo = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = req.user?._id
-         getUserById(userId, res)
-    } catch (error:any) {
-        return next(new ErrorHandler(error.message, 400));
-
+      const userId = req.user?._id;
+      getUserById(userId, res);
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, 400));
     }
-})
+  }
+);
+
+interface ISocialAuthBody {
+  name: string;
+  email: string;
+  avatar?: string;
+}
+
+//Social Auth
+export const socialAuth = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { name, email, avatar } = req.body as ISocialAuthBody;
+      const user = await userModel.findOne({ email });
+      if (!user) {
+        const newUser = await userModel.create({ name, email, avatar });
+        sendToken(newUser, 200, res);
+      } else {
+        sendToken(user, 200, res);
+      }
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, 400));
+    }
+  }
+);
+
+//Update user info
+interface IUpdateUserInfo {
+  name: string;
+  email: string;
+}
+
+export const updateUserInfo = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { name, email } = req.body as IUpdateUserInfo;
+      const userId = req.user?._id;
+      const user = await userModel.findById(userId);
+
+      if (email && user) {
+        const isEmailExist = await userModel.findOne({ email });
+        if (isEmailExist) {
+          return next(
+            new ErrorHandler(`User ${user.email} already exists`, 400)
+          );
+        }
+
+        user.email = email;
+      }
+
+      if (name && user) {
+        user.name = name;
+      }
+
+      await user?.save();
+      await redis.set(userId, JSON.stringify(user));
+
+      res.status(200).json({
+        success: true,
+        message: "User update successfully"
+      });
+    } catch (error) {
+      return next(new ErrorHandler(error.message, 400));
+    }
+  }
+);
