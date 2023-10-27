@@ -5,13 +5,12 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import { redis } from "../utils/redis";
 
 // Authenticated User
-export const isAuthenticated = catchAsyncError( async (req: Request, res: Response, next: NextFunction) => {
+export const isAuthenticated = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
     const access_token = req.cookies.access_token as string;
     console.log(req.cookies);
     if (!access_token) {
-  
       return next(new ErrorHandler("User is not authenticated", 400));
-   
     }
 
     const decoded = jwt.verify(
@@ -33,12 +32,17 @@ export const isAuthenticated = catchAsyncError( async (req: Request, res: Respon
   }
 );
 
-
 // Validate user roles
-export const authorizeRole = (...roles: string[]) => {
+export const authorizedRoles = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!roles.includes(req.user.role)) { 
-
+    if (!roles.includes(req.user?.role)) {
+      return next(
+        new ErrorHandler(
+          `Role ${req.user?.role} is not allowed to access this resourse`,
+          403
+        )
+      );
     }
-  }
-}
+    next(null);
+  };
+};

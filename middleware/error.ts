@@ -25,7 +25,7 @@ export const ErrorMiddleware = (err: any, req: Request, res: Response, next: Fun
 
   //JWT Expire error
   if (err.name === "TokenExpiredError") {
-    const message = `RJWT has expired. Try again`;
+    const message = `JWT has expired. Try again`;
     err = new ErrorHandler(message, 400);
   }
 
