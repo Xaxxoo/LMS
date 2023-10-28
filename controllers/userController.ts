@@ -321,6 +321,12 @@ export const updateUserPassword = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { oldPassword, newPassword } = req.body as IUserPassword;
+
+      if (!oldPassword || !newPassword) { 
+        return next(new ErrorHandler("Please enter old and new passwords", 400));
+ 
+      }
+
       const user = await userModel.findById(req.user?._id);
 
       if (user?.password === undefined) {
