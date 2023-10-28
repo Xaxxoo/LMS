@@ -303,9 +303,44 @@ export const updateUserInfo = catchAsyncError(
 
       res.status(200).json({
         success: true,
-        message: "User update successfully"
+        message: "User update successfully",
       });
-    } catch (error) {
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, 400));
+    }
+  }
+);
+
+// Update user password
+interface IUserPassword {
+  oldPassword: string;
+  newPassword: string;
+}
+
+export const updateUserPassword = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { oldPassword, newPassword } = req.body as IUserPassword;
+      const user = await userModel.findById(req.user?._id);
+
+      if (user?.password === undefined) {
+        return next(new ErrorHandler("Invalid user", 400));
+      }
+
+      const isPasswordMatch = await user?.comparePasswords(oldPassword);
+
+      if (!isPasswordMatch) {
+        return next(new ErrorHandler("Invalid old password", 400));
+      }
+
+      user.password = newPassword;
+
+      await user.save();
+
+      res
+        .status(200)
+        .json({ success: true, message: "Password updated successfully" });
+    } catch (error: any) {
       return next(new ErrorHandler(error.message, 400));
     }
   }
